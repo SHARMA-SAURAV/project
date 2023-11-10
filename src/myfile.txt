@@ -1,0 +1,46 @@
+import javax.swing.*;
+import javax.swing.tree.DefaultMutableTreeNode;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.io.FileReader;
+
+public class JsonFileToJTree {
+
+    public static void main(String[] args) {
+        try {
+            JsonElement jsonElement = JsonParser.parseReader(new FileReader("your_file_path.json"));
+            DefaultMutableTreeNode root = createTreeNode(jsonElement);
+
+            JTree tree = new JTree(root);
+
+            JFrame frame = new JFrame("JSON to JTree Example");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.getContentPane().add(new JScrollPane(tree));
+            frame.setSize(300, 300);
+            frame.setVisible(true);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static DefaultMutableTreeNode createTreeNode(JsonElement jsonElement) {
+        if (jsonElement.isJsonObject()) {
+            DefaultMutableTreeNode node = new DefaultMutableTreeNode();
+            JsonObject jsonObject = jsonElement.getAsJsonObject();
+            for (String key : jsonObject.keySet()) {
+                node.add(new DefaultMutableTreeNode(key));
+                node.add(createTreeNode(jsonObject.get(key)));
+            }
+            return node;
+        } else if (jsonElement.isJsonArray()) {
+            DefaultMutableTreeNode node = new DefaultMutableTreeNode();
+            for (JsonElement element : jsonElement.getAsJsonArray()) {
+                node.add(createTreeNode(element));
+            }
+            return node;
+        } else {
+            return new DefaultMutableTreeNode(jsonElement.getAsString());
+        }
+    }
+}
