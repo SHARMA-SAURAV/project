@@ -1,48 +1,68 @@
-import com.pff.PSTFile;
-import com.pff.PSTFolder;
-import com.pff.PSTMessage;
-import com.pff.PSTObject;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import com.aspose.email.*;
 
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 
 public class PSTFileExtracter {
 
     public static void main(String[] args) {
-        String pstFilePath = "C:\\Users\\admin\\Desktop\\All-2023-11-09-134507.pst";
-        String outputFilePath = "C:\\Users\\admin\\Desktop\\Java1.txt";
+        String tgzFilePath = "C:\\Users\\admin\\Downloads\\hello.tgz";
+        String pstFilePath = "output.pst";
 
+        extractTGZAndCreatePST(tgzFilePath, pstFilePath);
+    }
+
+    private static void extractTGZAndCreatePST(String tgzFilePath, String pstFilePath) {
         try {
-            PSTFile pstFile = new PSTFile(pstFilePath);
-            FileWriter writer = new FileWriter(outputFilePath);
+            // Extract TGZ file
+            PersonalStorage pst = PersonalStorage.create(pstFilePath, FileFormatVersion.Unicode);
 
-            // Iterate through all folders in the PST file
-            processFolder(pstFile.getRootFolder(), writer);
+            try (TarArchiveInputStream tgzInputStream = new TarArchiveInputStream(
+                    new GzipCompressorInputStream(new FileInputStream(tgzFilePath)))) {
+                TarArchiveEntry entry;
+                while ((entry = tgzInputStream.getNextTarEntry()) != null) {
+                    if (!entry.isDirectory()) {
+                        // Process the content of the entry (assuming text files)
+                        String emailContent = extractContent(tgzInputStream);
+                        
+                        // Add the extracted content to the PST file
+                        addContentToPST(pst, emailContent);
+                    }
+                }
+            }
 
-            writer.close();
-
+            pst.dispose();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static void processFolder(PSTFolder folder, FileWriter writer) throws Exception {
-        // Process items in the folder
-        for (PSTObject item : folder.getItemsString()) {
-            if (item instanceof PSTMessage) {
-                PSTMessage message = (PSTMessage) item;
-                String messageInfo = "Subject: " + message.getSubject() + "\n"
-                        + "Sender: " + message.getSenderEmailAddress() + "\n"
-                        + "Body: " + message.getBody() + "\n-------------------------------\n";
+    private static String extractContent(InputStream inputStream) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+            StringBuilder content = new StringBuilder();
+            String line;
 
-                // Write message information to the text file
-                writer.write(messageInfo);
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
             }
-        }
 
-        // Recursively process subfolders
-        for (PSTFolder subFolder : folder.getSubFolders()) {
-            processFolder(subFolder, writer);
+            // Process the extracted content as needed
+            return content.toString();
         }
+    }
+
+    private static void addContentToPST(PersonalStorage pst, String emailContent) {
+        FolderInfo inbox = pst.getRootFolder().addSubFolder("Inbox");
+
+        // Create a new message in the inbox folder and set its content
+        MapiMessage message = new MapiMessage();
+        message.setBody(emailContent);
+
+        // Add other properties or attachments as needed
+
+        // Add the message to the PST file
+        inbox.addMessage(message);
     }
 }
